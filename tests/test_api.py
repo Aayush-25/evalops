@@ -115,3 +115,33 @@ class TestHealthResponse:
         h = HealthResponse(status="ok", db_connected=True)
         assert h.status == "ok"
         assert h.db_connected is True
+
+
+# ---------------------------------------------------------------------------
+# database module — unit tests with mocked pool
+# ---------------------------------------------------------------------------
+
+class TestDatabase:
+    def test_init_db_executes_create_table(self):
+        """init_db must issue CREATE TABLE and commit, even if called twice."""
+        from unittest.mock import MagicMock, patch
+        from contextlib import contextmanager
+
+        mock_cursor = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
+        mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+
+        @contextmanager
+        def _mock_get_conn():
+            yield mock_conn
+
+        with patch("api.database.get_connection", _mock_get_conn):
+            from api.database import init_db
+            init_db()
+
+        mock_cursor.execute.assert_called_once()
+        sql = mock_cursor.execute.call_args[0][0]
+        assert "CREATE TABLE IF NOT EXISTS traces" in sql
+        assert "CREATE INDEX IF NOT EXISTS idx_traces_project_created" in sql
+        mock_conn.commit.assert_called_once()
