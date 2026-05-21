@@ -30,9 +30,10 @@ def client(mock_cursor: MagicMock):
     def _mock_get_connection():
         yield mock_conn
 
-    # Patch before importing app so startup event uses mock
-    with patch("api.database.init_db"), \
-         patch("api.database.get_connection", _mock_get_connection):
+    # Patch the bare 'database' module that main.py imports (not api.database —
+    # they're separate sys.modules entries because uvicorn runs from api/).
+    with patch("database.init_db"), \
+         patch("database.get_connection", _mock_get_connection):
         from api.main import app
         with TestClient(app) as c:
             yield c, mock_cursor

@@ -6,8 +6,10 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import database
-from api.models import EvaluateRequest, HealthResponse, TraceCreate, TraceResponse
+# NOTE: do not change these to "from api import" —
+# uvicorn runs from inside the api/ directory
+import database
+from models import EvaluateRequest, HealthResponse, TraceCreate, TraceResponse
 
 load_dotenv()
 
