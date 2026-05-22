@@ -279,23 +279,25 @@ class TestListTraces:
 class TestEvaluate:
     def test_returns_evaluation_started_with_count(self, client):
         c, cursor = client
-        cursor.fetchall.return_value = [(_FAKE_UUID,), (_FAKE_UUID,)]
+        cursor.fetchone.return_value = (2,)  # COUNT(*) = 2
         r = c.post("/evaluate", json={"project_name": "default"})
         assert r.status_code == 200
         data = r.json()
         assert data["message"] == "evaluation started"
         assert data["trace_count"] == 2
 
-    def test_uses_default_project_name_when_omitted(self, client):
+    def test_returns_no_pending_when_count_is_zero(self, client):
         c, cursor = client
-        cursor.fetchall.return_value = []
+        cursor.fetchone.return_value = (0,)  # COUNT(*) = 0
         r = c.post("/evaluate", json={})
         assert r.status_code == 200
-        assert r.json()["trace_count"] == 0
+        data = r.json()
+        assert data["message"] == "no pending traces"
+        assert data["trace_count"] == 0
 
     def test_pending_filter_in_query(self, client):
         c, cursor = client
-        cursor.fetchall.return_value = []
+        cursor.fetchone.return_value = (0,)  # avoid launching background task
         c.post("/evaluate", json={"project_name": "prod"})
         call_args = cursor.execute.call_args[0]
         assert "pending" in call_args[0]

@@ -1,5 +1,12 @@
+import sys
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
+
+# Mock ragas and datasets so evaluator.py can be imported in tests without
+# the real libraries installed. Actual evaluate() calls are patched per-test.
+for _mod in ("ragas", "ragas.metrics", "datasets"):
+    if _mod not in sys.modules:
+        sys.modules[_mod] = MagicMock()
 
 import pytest
 from fastapi.testclient import TestClient

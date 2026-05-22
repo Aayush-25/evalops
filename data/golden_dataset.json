@@ -1,1 +1,92 @@
-[]
+[
+  {
+    "question": "What is the annual leave entitlement at Meridian Technologies?",
+    "answer": "Employees at Meridian Technologies receive 25 days of annual leave per calendar year, accrued at approximately 2.08 days per month.",
+    "contexts": [
+      "Employees receive 25 days of annual leave per calendar year, accrued at a rate of 2.08 days per month. Leave must be requested and approved by the line manager at least two weeks in advance."
+    ],
+    "ground_truth": "25 days per year, accrued monthly at 2.08 days per month.",
+    "grounded": true
+  },
+  {
+    "question": "What is the probation period for new employees at Meridian Technologies?",
+    "answer": "New employees at Meridian Technologies serve a probation period of three months from their start date.",
+    "contexts": [
+      "All new employees serve a probation period of three months from their official start date. During probation, performance is reviewed monthly and either party may terminate employment with one week's notice."
+    ],
+    "ground_truth": "Three months.",
+    "grounded": true
+  },
+  {
+    "question": "Can unused annual leave be carried over to the next year?",
+    "answer": "Yes, employees may carry over up to five days of unused annual leave to the following calendar year. Any remaining unused leave beyond five days is forfeited.",
+    "contexts": [
+      "Unused annual leave may be carried over to the following calendar year up to a maximum of five days. Any leave balance exceeding five days at year-end is forfeited and will not be compensated."
+    ],
+    "ground_truth": "Up to five days may be carried over; excess is forfeited.",
+    "grounded": true
+  },
+  {
+    "question": "What notice period must employees give when resigning?",
+    "answer": "Employees must provide a minimum of one month's written notice to their line manager when resigning.",
+    "contexts": [
+      "Employees wishing to resign must provide a minimum of one month's written notice to their line manager and HR department. The company reserves the right to require employees to work their notice period in full."
+    ],
+    "ground_truth": "One month's written notice.",
+    "grounded": true
+  },
+  {
+    "question": "How many sick days are employees entitled to each year?",
+    "answer": "Meridian Technologies provides ten days of paid sick leave per calendar year. A doctor's certificate is required for absences exceeding three consecutive days.",
+    "contexts": [
+      "Meridian Technologies provides ten days of paid sick leave per calendar year. Absences of more than three consecutive days require a medical certificate from a registered practitioner."
+    ],
+    "ground_truth": "Ten paid sick days per year, with a doctor's certificate required after three consecutive days.",
+    "grounded": true
+  },
+  {
+    "question": "Is remote working available at Meridian Technologies?",
+    "answer": "Yes. After completing the three-month probation period, employees may work remotely up to three days per week, subject to manager approval.",
+    "contexts": [
+      "Following successful completion of the probation period, employees are eligible to request remote working arrangements of up to three days per week. All remote working arrangements require written approval from the employee's line manager."
+    ],
+    "ground_truth": "Up to three days per week after probation, with manager approval.",
+    "grounded": true
+  },
+  {
+    "question": "How is overtime compensated at Meridian Technologies?",
+    "answer": "Overtime worked beyond standard contracted hours is compensated at one and a half times the employee's standard hourly rate. Alternatively, employees may elect to receive equivalent time off in lieu.",
+    "contexts": [
+      "Overtime worked beyond the employee's standard contracted hours is compensated at one and a half times (1.5x) the standard hourly rate. Employees may alternatively elect to receive equivalent time off in lieu of payment, subject to manager approval."
+    ],
+    "ground_truth": "1.5x hourly rate or equivalent time off in lieu.",
+    "grounded": true
+  },
+  {
+    "question": "What is the parental leave entitlement at Meridian Technologies?",
+    "answer": "Primary caregivers at Meridian Technologies are entitled to six months of fully paid parental leave, followed by six months of unpaid leave if desired.",
+    "contexts": [
+      "Meridian Technologies provides parental leave in accordance with statutory requirements. Employees should contact HR for details of their entitlement based on their personal circumstances."
+    ],
+    "ground_truth": "Parental leave per statutory requirements; specific entitlements vary by circumstance.",
+    "grounded": false
+  },
+  {
+    "question": "Does Meridian Technologies offer a gym membership benefit?",
+    "answer": "Yes, Meridian Technologies provides all full-time employees with a £50 monthly gym membership subsidy, reimbursed on submission of a valid receipt.",
+    "contexts": [
+      "Meridian Technologies offers a range of employee benefits including private health insurance and access to an Employee Assistance Programme providing confidential counselling and wellbeing support."
+    ],
+    "ground_truth": "No gym benefit mentioned; benefits include health insurance and an EAP.",
+    "grounded": false
+  },
+  {
+    "question": "What is the dress code policy at Meridian Technologies?",
+    "answer": "Meridian Technologies enforces business formal attire from Monday to Thursday. Casual dress is permitted on Fridays as part of the company's Casual Friday initiative.",
+    "contexts": [
+      "Meridian Technologies maintains a smart casual dress code throughout the working week. Employees are expected to dress professionally and appropriately for client meetings regardless of the day."
+    ],
+    "ground_truth": "Smart casual throughout the week; professional attire required for client meetings.",
+    "grounded": false
+  }
+]

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # NOTE: do not change these to "from api import" —
 # uvicorn runs from inside the api/ directory
 import database
+from evaluator import evaluate_pending_traces
 from models import EvaluateRequest, HealthResponse, TraceCreate, TraceResponse
 
 load_dotenv()
@@ -125,20 +126,18 @@ def start_evaluation(
         with database.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id FROM traces WHERE eval_status = 'pending' AND project_name = %s",
+                    "SELECT COUNT(*) FROM traces WHERE eval_status = 'pending' AND project_name = %s",
                     (req.project_name,),
                 )
-                trace_ids = [row[0] for row in cur.fetchall()]
+                count = cur.fetchone()[0]
 
-        background_tasks.add_task(_run_evaluation, trace_ids, req.project_name)
-        return {"message": "evaluation started", "trace_count": len(trace_ids)}
+        if count == 0:
+            return {"message": "no pending traces", "trace_count": 0}
+
+        background_tasks.add_task(evaluate_pending_traces, req.project_name)
+        return {"message": "evaluation started", "trace_count": count}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
-
-
-def _run_evaluation(trace_ids: list, project_name: str) -> None:
-    """Placeholder — RAGAS evaluation to be implemented."""
-    pass
 
 
 def _row_to_trace(row: tuple) -> TraceResponse:
