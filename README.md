@@ -2,7 +2,6 @@
 
 **Open-source quality monitoring for LLM applications**
 
-[![API Live](https://img.shields.io/badge/API-Live%20on%20Railway-brightgreen)](https://evalops-production.up.railway.app/docs)
 [![Dashboard Live](https://img.shields.io/badge/Dashboard-Live%20on%20Streamlit-ff4b4b)](https://evalops-p5mh2czqnbwgkpzyvmaey7.streamlit.app)
 [![GitHub](https://img.shields.io/badge/GitHub-Aayush--25%2Fevalops-181717?logo=github)](https://github.com/Aayush-25/evalops)
 [![Tests](https://img.shields.io/badge/tests-52%20passing-brightgreen)](https://github.com/Aayush-25/evalops)
@@ -20,7 +19,6 @@ Most LLM applications ship without any systematic way to measure whether their a
 
 | Service | URL |
 |---------|-----|
-| API Documentation | https://evalops-production.up.railway.app/docs |
 | Streamlit Dashboard | https://evalops-p5mh2czqnbwgkpzyvmaey7.streamlit.app |
 | Source Code | https://github.com/Aayush-25/evalops |
 
@@ -38,7 +36,7 @@ Most LLM applications ship without any systematic way to measure whether their a
                  │ HTTP POST /traces
                  ▼
 ┌──────────────────────────────────────────┐
-│      FastAPI Backend  (Railway)          │
+│           FastAPI Backend                │
 │                                          │
 │  POST /traces   GET /traces              │
 │  POST /evaluate GET /health              │
@@ -46,7 +44,7 @@ Most LLM applications ship without any systematic way to measure whether their a
                  │ psycopg2 raw SQL
                  ▼
 ┌──────────────────────────────────────────┐
-│      PostgreSQL Database  (Railway)      │
+│         PostgreSQL Database              │
 │                                          │
 │  traces table — id, prompt, response,    │
 │  model, faithfulness, relevancy, ...     │
@@ -82,7 +80,7 @@ Both scores appear in the dashboard and are stored per-trace, so you can track q
 from evalops import EvalOpsTracer
 
 tracer = EvalOpsTracer(
-    api_url="https://evalops-production.up.railway.app",
+    api_url="http://localhost:8000",
     project_name="my-project",
 )
 
@@ -138,7 +136,7 @@ curl -X POST http://localhost:8000/traces \
 RAGAS scoring takes 2–10 seconds per batch. FastAPI's built-in `BackgroundTasks` handles this without a broker, a worker process, or Redis infrastructure. The evaluator marks rows `running` before calling RAGAS and resets them to `failed` on any exception, giving the same at-least-once delivery guarantee Celery would provide — without the operational overhead that's unjustified at this scale.
 
 **PostgreSQL over a key-value store.**
-Traces are structured, relational data that the dashboard queries with aggregations (`AVG FILTER`, `GROUP BY day`, pagination with `LIMIT/OFFSET`). PostgreSQL handles all of this natively; a key-value store would push that complexity into application code. The same Railway add-on that hosts the API also hosts the database, so there's no extra infrastructure to manage.
+Traces are structured, relational data that the dashboard queries with aggregations (`AVG FILTER`, `GROUP BY day`, pagination with `LIMIT/OFFSET`). PostgreSQL handles all of this natively; a key-value store would push that complexity into application code.
 
 **Streamlit over React.**
 The dashboard is a read-heavy analytics tool, not a product UI. Streamlit renders pandas DataFrames and line charts in a few lines of Python, deploys to Streamlit Cloud in one click, and requires no build pipeline, no npm, and no state management library. The trade-off — Streamlit reruns the full script on interaction — is irrelevant for a low-traffic internal dashboard with 30-second query caching.
@@ -160,7 +158,7 @@ EvalOps has one table. The queries are straightforward enough that an ORM adds i
 | Evaluation dataset | HuggingFace `datasets` |
 | SDK HTTP client | httpx |
 | Dashboard | Streamlit |
-| Deployment | Railway (API + PostgreSQL), Streamlit Cloud |
+| Deployment | Docker (API + PostgreSQL), Streamlit Cloud |
 | Testing | pytest + respx — 52 tests, ~0.3 s |
 | Python | 3.11+ |
 
