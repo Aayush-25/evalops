@@ -1,196 +1,130 @@
-# EvalOps — LLM Evaluation & Observability Platform
+# EvalOps
 
-**Open-source quality monitoring for LLM applications**
+**Trace LLM calls, store them in PostgreSQL, and inspect evaluation results.**
 
-[![Dashboard Live](https://img.shields.io/badge/Dashboard-Live%20on%20Streamlit-ff4b4b)](https://evalops-p5mh2czqnbwgkpzyvmaey7.streamlit.app)
-[![GitHub](https://img.shields.io/badge/GitHub-Aayush--25%2Fevalops-181717?logo=github)](https://github.com/Aayush-25/evalops)
-[![Tests](https://img.shields.io/badge/tests-52%20passing-brightgreen)](https://github.com/Aayush-25/evalops)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://python.org)
+EvalOps is a backend learning project with a Python tracing SDK, FastAPI API, RAGAS evaluator, and Streamlit dashboard. It explores instrumentation, relational storage, background evaluation, and testable API design.
 
----
-
-## What It Is
-
-Most LLM applications ship without any systematic way to measure whether their answers are accurate or relevant — a bug that only surfaces when users complain. EvalOps gives you a two-line decorator that captures every LLM call, stores it in PostgreSQL, and automatically scores each response for hallucination and relevancy using RAGAS, with results visible in a live dashboard.
-
----
-
-## Live Demo
-
-| Service | URL |
-|---------|-----|
-| Streamlit Dashboard | https://evalops-p5mh2czqnbwgkpzyvmaey7.streamlit.app |
-| Source Code | https://github.com/Aayush-25/evalops |
-
----
+[Quick start](#quick-start) · [SDK usage](#sdk-usage) · [Tests](#tests) · [Limitations](#current-limitations)
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────┐
-│       SDK  (pip install evalops)         │
-│                                          │
-│   @tracer.trace(model="gpt-4o")          │
-│   def ask_llm(prompt: str) -> str: ...   │
-└────────────────┬─────────────────────────┘
-                 │ HTTP POST /traces
-                 ▼
-┌──────────────────────────────────────────┐
-│           FastAPI Backend                │
-│                                          │
-│  POST /traces   GET /traces              │
-│  POST /evaluate GET /health              │
-└────────────────┬─────────────────────────┘
-                 │ psycopg2 raw SQL
-                 ▼
-┌──────────────────────────────────────────┐
-│         PostgreSQL Database              │
-│                                          │
-│  traces table — id, prompt, response,    │
-│  model, faithfulness, relevancy, ...     │
-└────────────────┬─────────────────────────┘
-                 │ RAGAS evaluation (BackgroundTask)
-                 ▼
-┌──────────────────────────────────────────┐
-│   Streamlit Dashboard  (Streamlit Cloud) │
-│                                          │
-│  Overview · Trace Explorer · Single Trace│
-└──────────────────────────────────────────┘
+```text
+Your Python application
+        │ tracing SDK / HTTP
+        ▼
+    FastAPI API ───────────────► PostgreSQL
+        │                           ▲
+        │ POST /evaluate            │ reads traces and scores
+        ▼                           │
+RAGAS background evaluation    Streamlit dashboard
+        │                           │
+        └── writes scores to DB     └── POST /evaluate to API
 ```
 
----
+The SDK records traces; evaluation starts when `/evaluate` is called, including through the dashboard. It is not automatically triggered by every traced call.
 
-## What It Measures
+## What is implemented
 
-EvalOps scores every LLM response on two dimensions using [RAGAS](https://docs.ragas.io):
+- Trace capture: prompt, response, model, latency, optional token counts, contexts, and estimated cost.
+- PostgreSQL storage with parameterized queries, connection pooling, and indexes.
+- RAGAS faithfulness and answer-relevancy scoring in batches of up to 20 pending traces.
+- A dashboard for aggregate metrics, recent traces, and individual trace inspection.
+- Unit tests covering the API, evaluator error handling, SDK tracing, and cost calculations.
 
-**Faithfulness** — *Is the answer actually supported by the source documents?*
-A score of `1.0` means every claim in the response can be traced back to the provided context. A low score is a hallucination signal: the model stated something it cannot justify from the retrieved text.
+## Quick start
 
-**Answer Relevancy** — *Does the answer actually address what was asked?*
-A score of `1.0` means the response directly and completely answers the question. A low score means the model went off-topic or gave a generic non-answer.
+Requires Python 3.11+, Docker with Compose, and an OpenAI API key for real RAGAS evaluation. Commands below use a macOS/Linux shell.
 
-Both scores appear in the dashboard and are stored per-trace, so you can track quality over time and catch regressions across model versions or prompt changes.
+```bash
+git clone https://github.com/Aayush-25/evalops.git
+cd evalops
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r api/requirements.txt -r dashboard/requirements.txt
+python -m pip install -e 'sdk[dev]'
+cp .env.example .env
+```
 
----
+Edit `.env`: set the same database password in `POSTGRES_PASSWORD` and `DATABASE_URL`, and replace the placeholder `OPENAI_API_KEY`. The dashboard uses both `DATABASE_URL` for reads and `API_URL` for evaluation requests.
 
-## SDK Usage
+```bash
+docker compose up -d db
+# Start from api/ because its modules use local imports.
+cd api
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+In another terminal, from the repository root:
+
+```bash
+source .venv/bin/activate
+python -m streamlit run dashboard/app.py
+```
+
+Open the API docs at `http://127.0.0.1:8000/docs` and the dashboard at `http://localhost:8501`. Docker Compose starts **PostgreSQL only**; the API and dashboard run separately.
+
+### Try the API
+
+```bash
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/traces \
+  -H 'Content-Type: application/json' \
+  -d '{"project_name":"demo","prompt":"What is the capital of France?","response":"Paris","model":"example","latency_ms":230,"contexts":["Paris is the capital of France."]}'
+
+# Makes calls to the configured evaluation provider.
+curl -X POST http://127.0.0.1:8000/evaluate \
+  -H 'Content-Type: application/json' \
+  -d '{"project_name":"demo"}'
+
+curl 'http://127.0.0.1:8000/traces?project_name=demo'
+```
+
+## SDK usage
+
+Install the SDK from this repository with `python -m pip install -e sdk/`.
 
 ```python
 from evalops import EvalOpsTracer
 
-tracer = EvalOpsTracer(
-    api_url="http://localhost:8000",
-    project_name="my-project",
-)
-
-@tracer.trace(model="gpt-4o")
-def ask_llm(prompt: str) -> str:
-    return openai_client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-    ).choices[0].message.content
+with EvalOpsTracer(api_url="http://127.0.0.1:8000", project_name="demo") as tracer:
+    with tracer.span(
+        prompt="What is the capital of France?",
+        model="example",
+        contexts=["Paris is the capital of France."],
+    ) as span:
+        span.set_response("Paris")
 ```
 
-The decorator automatically measures latency and ships the trace. For token counts and cost tracking, use the context manager form:
+The SDK also offers `@tracer.trace(model="...")`. Token counts must be supplied with `span.set_tokens(...)`; the decorator does not extract usage from a provider response. Costs come from the SDK's pricing table and supplied counts, not a billing integration.
 
-```python
-with tracer.span(prompt=prompt, model="gpt-4o") as span:
-    resp = openai_client.chat.completions.create(...)
-    span.set_response(resp.choices[0].message.content)
-    span.set_tokens(
-        input_tokens=resp.usage.prompt_tokens,
-        output_tokens=resp.usage.completion_tokens,
-    )
-```
+## Tests
 
----
-
-## Quick Start
+From the repository root, after installing the dependencies above:
 
 ```bash
-# 1. Clone and configure environment
-git clone https://github.com/Aayush-25/evalops && cd evalops
-cp .env.example .env   # set DATABASE_URL, POSTGRES_PASSWORD, OPENAI_API_KEY
-
-# 2. Start PostgreSQL
-docker compose up -d
-
-# 3. Run the API  (must run from inside api/ — see Design Decisions)
-cd api && pip install -r requirements.txt && uvicorn main:app --reload
-
-# 4. Run the dashboard  (new terminal, from project root)
-pip install -r dashboard/requirements.txt && streamlit run dashboard/app.py
-
-# 5. Send a test trace
-curl -X POST http://localhost:8000/traces \
-  -H "Content-Type: application/json" \
-  -d '{"prompt":"What is the capital of France?","response":"Paris","model":"gpt-4o","latency_ms":230}'
+python -m pytest -q
 ```
 
----
+The existing suite contains 52 tests. Database access and RAGAS calls are mocked, and SDK HTTP calls use `respx`. Passing this suite does not establish compatibility with a live database, the current evaluation provider, or a deployed service.
 
-## Design Decisions
+## Current limitations
 
-**BackgroundTasks over Celery.**
-RAGAS scoring takes 2–10 seconds per batch. FastAPI's built-in `BackgroundTasks` handles this without a broker, a worker process, or Redis infrastructure. The evaluator marks rows `running` before calling RAGAS and resets them to `failed` on any exception, giving the same at-least-once delivery guarantee Celery would provide — without the operational overhead that's unjustified at this scale.
+- This is a development project, not a hardened public service: authentication, rate limiting, and tenant isolation are not implemented.
+- FastAPI background tasks are in-process. There is no durable queue, automatic crash recovery, or delivery guarantee.
+- Selecting pending traces and marking them running are separate operations; concurrent evaluations can select the same rows.
+- Meaningful faithfulness scores require real retrieved contexts. A score is an evaluation signal, not proof of correctness.
+- Provider versions and model availability need an integration check before deployment. Dependency versions are defined in `api/requirements.txt`.
+- `data/golden_dataset.json` is sample data; the evaluator reads pending database traces, not this file.
 
-**PostgreSQL over a key-value store.**
-Traces are structured, relational data that the dashboard queries with aggregations (`AVG FILTER`, `GROUP BY day`, pagination with `LIMIT/OFFSET`). PostgreSQL handles all of this natively; a key-value store would push that complexity into application code.
+## Repository map
 
-**Streamlit over React.**
-The dashboard is a read-heavy analytics tool, not a product UI. Streamlit renders pandas DataFrames and line charts in a few lines of Python, deploys to Streamlit Cloud in one click, and requires no build pipeline, no npm, and no state management library. The trade-off — Streamlit reruns the full script on interaction — is irrelevant for a low-traffic internal dashboard with 30-second query caching.
+| Path | Purpose |
+| --- | --- |
+| `api/` | Routes, request models, database access, evaluator |
+| `sdk/evalops/` | Tracer, spans, and estimated pricing |
+| `dashboard/app.py` | Streamlit UI with direct database reads |
+| `tests/` | API and evaluator unit tests |
+| `sdk/evalops/tests/` | SDK unit tests |
+| `docker-compose.yml` | Local PostgreSQL service |
 
-**Raw SQL over SQLAlchemy.**
-EvalOps has one table. The queries are straightforward enough that an ORM adds indirection without simplifying anything. Raw psycopg2 with a `ThreadedConnectionPool` makes every query visible, easy to profile, and impossible to accidentally make N+1. All user values go through `%s` parameterization — there is no string formatting of user input anywhere in the codebase.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| API framework | FastAPI 0.111 + Uvicorn |
-| Database | PostgreSQL 15 |
-| Database driver | psycopg2-binary (ThreadedConnectionPool, raw SQL) |
-| Data validation | Pydantic v2 |
-| Evaluation engine | RAGAS 0.1.21 — faithfulness, answer_relevancy |
-| Evaluation dataset | HuggingFace `datasets` |
-| SDK HTTP client | httpx |
-| Dashboard | Streamlit |
-| Deployment | Docker (API + PostgreSQL), Streamlit Cloud |
-| Testing | pytest + respx — 52 tests, ~0.3 s |
-| Python | 3.11+ |
-
----
-
-## Project Structure
-
-```
-evalops/
-├── api/
-│   ├── main.py           # FastAPI app — 4 routes
-│   ├── evaluator.py      # RAGAS evaluation engine
-│   ├── database.py       # ThreadedConnectionPool + schema init
-│   ├── models.py         # Pydantic v2 request/response models
-│   ├── CLAUDE.md         # Import conventions (bare imports for uvicorn)
-│   └── requirements.txt
-├── sdk/
-│   ├── pyproject.toml    # pip install -e sdk/
-│   └── evalops/
-│       ├── tracer.py     # EvalOpsTracer — HTTP client, decorator, span factory
-│       ├── span.py       # Span — timing context manager, auto cost computation
-│       └── pricing.py    # compute_cost() — per-model token pricing table
-├── dashboard/
-│   ├── app.py            # Streamlit dashboard — Overview, Trace Explorer, Single Trace
-│   └── requirements.txt
-├── tests/
-│   ├── conftest.py       # Fixtures — mocked DB + ragas/datasets stubs
-│   ├── test_api.py       # API route + model tests (22 tests)
-│   └── test_evaluator.py # Evaluator unit tests (6 tests)
-├── data/
-│   └── golden_dataset.json  # 10 HR Q&A pairs — 7 grounded, 3 hallucinated
-├── docker-compose.yml
-├── pytest.ini
-└── .env.example
-```
+The local setup above is the reproducible entry point. A hosted deployment must be checked independently before being presented as a working demo.
